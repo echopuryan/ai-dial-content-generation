@@ -36,22 +36,45 @@ class Quality:
     hd: str = "hd"
 
 async def _save_images(attachments: list[Attachment]):
-    # TODO:
-    #  1. Create DIAL bucket client
-    #  2. Iterate through Images from attachments, download them and then save here
-    #  3. Print confirmation that image has been saved locally
-    raise NotImplementedError
+    async with DialBucketClient(
+            api_key=API_KEY,
+            base_url=DIAL_URL
+    ) as bucket_client:
+        for idx, attachment in enumerate(attachments):
+            if attachment.type and attachment.type == 'image/png':
+
+                image_bytes = await bucket_client.get_file(attachment.url)
+
+                file_name = f"generated_image_{idx+1}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+                with open(file_name, "wb") as image_file:
+                    image_file.write(image_bytes)
+
+                print(f"Image saved locally as {file_name}")
 
 
 def start() -> None:
-    # TODO:
-    #  1. Create DialModelClient
-    #  2. Generate image for "Sunny day on Bali"
-    #  3. Get attachments from response and save generated message (use method `_save_images`)
-    #  4. Try to configure the picture for output via `custom_fields` parameter.
-    #    - Documentation: See `custom_fields`. https://dialx.ai/dial_api#operation/sendChatCompletionRequest
-    #  5. Test it with the 'imagegeneration@005' (Google image generation model)
-    raise NotImplementedError
+    client = DialModelClient(
+        endpoint=DIAL_CHAT_COMPLETIONS_ENDPOINT,
+        deployment_name="dall-e-3",
+        api_key=API_KEY
+    )
+    response = client.get_completion(
+        messages=[
+            Message(
+                role=Role.USER,
+                content="Sunny day on Bali",
+            )
+        ],
+        custom_fields={
+            "image_generation": {
+                "size": Size.square,
+                "style": Style.natural,
+                "quality": Quality.hd
+            }
+        }
+    )
+    attachments = response.custom_content.attachments if response.custom_content else []
+    asyncio.run(_save_images(attachments))
 
 
 start()
